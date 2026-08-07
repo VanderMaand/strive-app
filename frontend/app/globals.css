@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background:
+    radial-gradient(1200px 600px at 15% -10%, rgba(34, 211, 200, 0.06), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, rgba(242, 166, 90, 0.05), transparent 55%),
+    #0A1120;
+  color: #E7EDF7;
+}
+
+.mono-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: rgba(34, 211, 200, 0.35);
+}
+
+/* Visible keyboard focus, respects the frontend-design quality floor */
+:focus-visible {
+  outline: 2px solid #22D3C8;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
