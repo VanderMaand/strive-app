@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
+// Prevent TypeScript error when importing CSS modules without declarations
+// @ts-ignore
 import "./globals.css";
 
 const plexSans = IBM_Plex_Sans({
