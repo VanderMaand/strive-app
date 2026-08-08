@@ -2,10 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { hashPassword, verifyToken } from "@/lib/auth";
 
+// debug saja
 export async function POST(req: NextRequest) {
-  // Hanya admin yang boleh buat user baru
   const token = req.cookies.get("strive_token")?.value;
   const currentUser = token ? verifyToken(token) : null;
+
+  console.log("=== DEBUG /api/users ===");
+  console.log("token ada?:", Boolean(token));
+  console.log("token value:", token);
+  console.log("currentUser:", currentUser);
+  console.log("========================");
 
   if (!currentUser || currentUser.role !== "admin") {
     return NextResponse.json(
@@ -13,6 +19,7 @@ export async function POST(req: NextRequest) {
       { status: 403 }
     );
   }
+  // debug
 
   const { fullName, email, password, role } = await req.json().catch(() => ({}));
 
