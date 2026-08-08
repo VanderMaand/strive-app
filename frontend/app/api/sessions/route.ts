@@ -38,6 +38,26 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const existing = await query<{ id: number }>(
+      `
+      SELECT id
+      FROM therapy_sessions
+      WHERE patient_id = $1 AND end_time IS NULL
+      ORDER BY id DESC
+      LIMIT 1
+      `,
+      [body.patientId]
+    );
+    if (existing.length > 0) {
+      return NextResponse.json(
+        {
+          status: "error",
+          message: `Pasien ini masih punya sesi aktif (#${existing[0].id}). Tutup sesi tersebut dulu sebelum memulai sesi baru.`,
+          sessionId: existing[0].id,
+        },
+        { status: 409 }
+      );
+    }
 
     const rows =
       await query<{ id: number }>(

@@ -81,8 +81,7 @@ async function startTherapy() {
       }
     );
 
-    const data =
-      await res.json();
+    const data = await res.json();
 
     if (data.status === "ok") {
 
@@ -98,22 +97,22 @@ async function startTherapy() {
         `Sesi terapi #${data.sessionId} dimulai`
       );
 
+    } else if (res.status === 409) {
+      setActiveSessionId(data.sessionId);
+      setTherapyRunning(true);
+      alert(data.message);
     } else {
-
       alert(
         data.message ??
         "Gagal membuat sesi"
       );
+    }
+  } catch(error)
+    {
+
+      console.error(error);
 
     }
-
-  }
-  catch(error)
-  {
-
-    console.error(error);
-
-  }
 
 }
 async function stopTherapy() {
@@ -146,8 +145,7 @@ async function stopTherapy() {
       }
     );
 
-    const data =
-      await res.json();
+    const data = await res.json();
 
     if (data.status === "ok") {
 
