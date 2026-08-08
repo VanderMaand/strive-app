@@ -145,7 +145,7 @@ if (sessionId) {
 
   therapyRunning:
     sessionId !== null,
-
+    sessionId: sessionId,  
   totalPatients:
     Number(
       patientCount[0]?.total ?? 0

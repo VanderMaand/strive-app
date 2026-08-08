@@ -20,6 +20,8 @@ type ApiStatus =
 type DashboardData = {
   totalPatients: number;
   activeSessions: number;
+  sessionId: number | null;
+  therapyRunning: boolean;
   latestECG: number;
   latestFingerAngle: number;
   latestElbowAngle: number;
@@ -288,10 +290,12 @@ async function downloadPDF() {
 
         if (!cancelled) {
           setDashboard(json);
+          setActiveSessionId(json.sessionId ?? null);
+          setTherapyRunning(Boolean(json.therapyRunning));
         }
       } catch (error) {
         console.log(error);
-      }
+        }
     }
 
     loadPatients();
