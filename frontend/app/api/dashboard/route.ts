@@ -110,7 +110,7 @@ if (sessionId) {
 
 }
 
-    let latestAI: any[] = [];
+let latestAI: any[] = [];
 
 if (sessionId) {
 
@@ -119,7 +119,6 @@ if (sessionId) {
     source: string;
   }[] = [];
 
-  if (sessionId) {
     latestAI = await query<{
       recommendation: string;
       source: string;
@@ -135,8 +134,7 @@ if (sessionId) {
       `,
       [sessionId]
     );
-  }
-
+    
 }
     
     return NextResponse.json({
