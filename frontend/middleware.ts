@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "@/lib/auth";
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const token = req.cookies.get("strive_token")?.value;
-  const user = token ? verifyToken(token) : null;
+  const user = token ? await verifyToken(token) : null;
 
   const isLoginPage = req.nextUrl.pathname === "/login";
 

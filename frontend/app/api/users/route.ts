@@ -5,7 +5,7 @@ import { hashPassword, verifyToken } from "@/lib/auth";
 // debug saja
 export async function POST(req: NextRequest) {
   const token = req.cookies.get("strive_token")?.value;
-  const currentUser = token ? verifyToken(token) : null;
+  const currentUser = token ? await verifyToken(token) : null;
 
   console.log("=== DEBUG /api/users ===");
   console.log("token ada?:", Boolean(token));

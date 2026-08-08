@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const token = signToken({ id: user.id, email: user.email, role: user.role });
+  const token = await signToken({ id: user.id, email: user.email, role: user.role });
 
   const res = NextResponse.json({ status: "ok" });
   res.cookies.set("strive_token", token, {
