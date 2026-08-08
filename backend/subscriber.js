@@ -41,52 +41,33 @@ client.on("message", async (topic, message) => {
 
     console.log("DATA:", data);
 
-    const session =
-await db.query(
-`
-SELECT id
-FROM therapy_sessions
-ORDER BY id DESC
-LIMIT 1
-`
-);
+    const session = await db.query(`
+      SELECT id
+      FROM therapy_sessions
+      WHERE end_time IS NULL
+      ORDER BY id DESC
+      LIMIT 1
+    `);
 
-const sessionId =
-session.rows[0].id;
+    if (session.rows.length === 0) {
+      console.log("Tidak ada sesi terapi aktif, data sensor diabaikan.");
+      return;
+    }
 
-await db.query(
-`
-INSERT INTO sensor_data
-(
-  session_id,
-  ecg,
-  finger_angle,
-  elbow_angle
-)
-VALUES
-(
-  $1,
-  $2,
-  $3,
-  $4
-)
-`,
-[
-  sessionId,
-  data.ecg,
-  data.finger_angle,
-  data.elbow_angle
-]
-);
-    console.log(
-      "Saved To PostgreSQL"
+    const sessionId = session.rows[0].id;
+
+    await db.query(
+      `
+      INSERT INTO sensor_data
+      (session_id, ecg, finger_angle, elbow_angle)
+      VALUES ($1, $2, $3, $4)
+      `,
+      [sessionId, data.ecg, data.finger_angle, data.elbow_angle]
     );
 
-  }
-  catch(error)
-  {
+    console.log("Saved To PostgreSQL");
+  } catch (error) {
     console.log("ERROR:");
     console.log(error);
   }
-
 });
