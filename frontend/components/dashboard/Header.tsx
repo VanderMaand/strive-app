@@ -84,7 +84,7 @@ export function Header({
           </div>
         </div>
 
-        {/* ⬇️ TAMBAHAN: info user login + tombol logout */}
+        {/* TAMBAH: info user login + tombol logout */}
         <div className="flex items-center gap-3 rounded-lg bg-surface px-4 py-2 ring-1 ring-surface-line">
           {user && (
             <div className="text-right text-sm leading-tight">

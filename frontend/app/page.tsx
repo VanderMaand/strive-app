@@ -54,7 +54,7 @@ export default function DashboardPage() {
   const [therapyRunning, setTherapyRunning] =
     useState(false);
 
-  // ⬇️ TAMBAHAN: state untuk modal "Tambah Pasien"
+  // TAMBAH: state untuk modal "Tambah Pasien"
   const [showAddPatient, setShowAddPatient] = useState(false);
   const [addPatientLoading, setAddPatientLoading] = useState(false);
   const [addPatientError, setAddPatientError] = useState("");
@@ -83,7 +83,7 @@ export default function DashboardPage() {
       if (data.status === "ok") {
         setActiveSessionId(data.sessionId);
         setTherapyRunning(true);
-        // ⬇️ DIPERBAIKI: tampilkan nomor urut sesi milik pasien ini,
+        // fixed: tampilkan nomor urut sesi milik pasien ini,
         // bukan id database global (yang dihitung lintas semua pasien)
         const sessionNumber = (dashboard?.patientSessions ?? 0) + 1;
         alert(`Sesi terapi ke-${sessionNumber} untuk pasien ini dimulai`);
@@ -194,7 +194,7 @@ export default function DashboardPage() {
     }
   }
 
-  // ⬇️ TAMBAHAN: submit form tambah pasien baru
+  // TAMBAH: submit form tambah pasien baru
   async function handleAddPatient(form: {
     name: string;
     age: string;
@@ -370,7 +370,7 @@ export default function DashboardPage() {
           Stop Therapy
         </button>
 
-        {/* ⬇️ TAMBAHAN: tombol buka modal tambah pasien, langsung dari dashboard */}
+        {/* TAMBAH: tombol buka modal tambah pasien, langsung dari dashboard */}
         <button
           onClick={() => setShowAddPatient(true)}
           className="
@@ -516,7 +516,7 @@ export default function DashboardPage() {
   );
 }
 
-// ⬇️ TAMBAHAN: komponen modal form tambah pasien
+// TAMBAH: komponen modal form tambah pasien
 function AddPatientModal({
   loading,
   error,

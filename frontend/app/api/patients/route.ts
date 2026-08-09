@@ -63,7 +63,7 @@ export async function GET() {
   }
 
   try {
-    // sebelumnya semua kolom ini hardcode NULL.
+    // sebelumnya kabeh kolom ini hardcode NULL.
     // Sekarang diambil dari agregat sensor_data per sesi:
     //   - duration_min  : selisih start_time & end_time sesi (menit)
     //   - finger/elbow   : rata-rata sudut sensor, dinormalisasi ke persen
@@ -84,24 +84,31 @@ export async function GET() {
           END AS duration_min,
           LEAST(100, GREATEST(0, (agg.avg_finger / 90.0) * 100)) AS finger_movement_pct,
           LEAST(100, GREATEST(0, (agg.avg_elbow / 130.0) * 100)) AS elbow_movement_pct,
-          LEAST(
-            100,
-            GREATEST(
-              0,
-              100 - COALESCE(
-                (
-                  (agg.stddev_finger + agg.stddev_elbow)
-                  / NULLIF(agg.avg_finger + agg.avg_elbow, 0)
-                ) * 100,
-                0
+          CASE
+            -- STDDEV butuh minimal 2 baris data untuk valid.
+            -- Kalau sample < 2 (termasuk 0), konsistensi belum bisa dinilai
+            -- secara statistik -> jangan default ke 100%, pakai 0% (konservatif).
+            WHEN agg.sample_count IS NULL OR agg.sample_count < 2 THEN 0
+            ELSE LEAST(
+              100,
+              GREATEST(
+                0,
+                100 - COALESCE(
+                  (
+                    (agg.stddev_finger + agg.stddev_elbow)
+                    / NULLIF(agg.avg_finger + agg.avg_elbow, 0)
+                  ) * 100,
+                  0
+                )
               )
             )
-          ) AS consistency_pct
+          END AS consistency_pct
       FROM patients p
       LEFT JOIN therapy_sessions s
           ON s.patient_id = p.id
       LEFT JOIN LATERAL (
           SELECT
+              COUNT(*) AS sample_count,
               AVG(finger_angle) AS avg_finger,
               AVG(elbow_angle) AS avg_elbow,
               COALESCE(STDDEV(finger_angle), 0) AS stddev_finger,
