@@ -3,41 +3,35 @@ import { query, isDbConfigured } from "@/lib/db";
 
 // POST /api/sessions
 // Membuat sesi terapi baru
-
 export async function POST(req: NextRequest) {
-
   if (!isDbConfigured()) {
     return NextResponse.json(
       {
         status: "disconnected",
-        message: "DATABASE_URL belum diisi."
+        message: "DATABASE_URL belum diisi.",
       },
       {
-        status: 503
+        status: 503,
       }
     );
   }
 
-  const body =
-    await req.json()
-      .catch(() => null);
+  const body = await req.json().catch(() => null);
 
   if (!body?.patientId) {
-
     return NextResponse.json(
       {
         status: "error",
-        message:
-          "Field 'patientId' wajib diisi."
+        message: "Field 'patientId' wajib diisi.",
       },
       {
-        status: 400
+        status: 400,
       }
     );
-
   }
 
   try {
+    // Cek dulu apakah pasien ini masih punya sesi aktif (belum ditutup)
     const existing = await query<{ id: number }>(
       `
       SELECT id
@@ -48,6 +42,7 @@ export async function POST(req: NextRequest) {
       `,
       [body.patientId]
     );
+
     if (existing.length > 0) {
       return NextResponse.json(
         {
@@ -59,64 +54,51 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const rows =
-      await query<{ id: number }>(
-        `
-        INSERT INTO therapy_sessions
-        (
-          patient_id,
-          start_time,
-          stage,
-          notes
-        )
-        VALUES
-        (
-          $1,
-          NOW(),
-          $2,
-          $3
-        )
-        RETURNING id
-        `,
-        [
-          body.patientId,
-          body.stage ?? 1,
-          body.notes ?? null
-        ]
-      );
+    const rows = await query<{ id: number }>(
+      `
+      INSERT INTO therapy_sessions
+      (
+        patient_id,
+        start_time,
+        stage,
+        notes
+      )
+      VALUES
+      (
+        $1,
+        NOW(),
+        $2,
+        $3
+      )
+      RETURNING id
+      `,
+      [body.patientId, body.stage ?? 1, body.notes ?? null]
+    );
 
     return NextResponse.json(
       {
         status: "ok",
-        sessionId: rows[0].id
+        sessionId: rows[0].id,
       },
       {
-        status: 201
+        status: 201,
       }
     );
-
-  }
-  catch(error)
-  {
-
+  } catch (error) {
     return NextResponse.json(
       {
         status: "error",
-        message:
-          (error as Error).message
+        message: (error as Error).message,
       },
       {
-        status: 500
+        status: 500,
       }
     );
-
   }
-
 }
 
 // PATCH /api/sessions
 // Menutup sesi terapi + menghitung recovery + menyimpan rekomendasi AI
-
 export async function PATCH(req: NextRequest) {
   if (!isDbConfigured()) {
     return NextResponse.json(
@@ -154,25 +136,27 @@ export async function PATCH(req: NextRequest) {
         notes = COALESCE($2, notes)
       WHERE id = $1
       `,
-      [
-        body.sessionId,
-        body.notes ?? null,
-      ]
+      [body.sessionId, body.notes ?? null]
     );
 
-    // 2. Ambil data sensor terakhir dari sesi
+    // 2. Ambil RATA-RATA data sensor SELURUH sesi
+    // ⬇️ DIPERBAIKI: sebelumnya cuma ambil 1 baris terakhir (ORDER BY created_at
+    // DESC LIMIT 1), sehingga rekomendasi hanya mencerminkan kondisi detik
+    // terakhir sebelum Stop Therapy ditekan, bukan performa keseluruhan sesi.
+    // Sekarang dirata-ratakan seluruh baris, konsisten dengan cara Recovery
+    // Score di sidebar (app/api/patients/route.ts) menghitung Finger/Elbow Movement.
     const sensor = await query<{
-      finger_angle: number | null;
-      elbow_angle: number | null;
+      avg_finger: number | null;
+      avg_elbow: number | null;
+      sample_count: number;
     }>(
       `
       SELECT
-        finger_angle,
-        elbow_angle
+        AVG(finger_angle) AS avg_finger,
+        AVG(elbow_angle) AS avg_elbow,
+        COUNT(*) AS sample_count
       FROM sensor_data
       WHERE session_id = $1
-      ORDER BY created_at DESC
-      LIMIT 1
       `,
       [body.sessionId]
     );
@@ -182,26 +166,24 @@ export async function PATCH(req: NextRequest) {
     let level = "Poor";
     let recommendation = "Belum ada data sensor yang cukup.";
 
-    // 3. Hitung recovery jika sensor tersedia
-    if (sensor.length > 0) {
-      const finger = Number(sensor[0].finger_angle ?? 0);
-      const elbow = Number(sensor[0].elbow_angle ?? 0);
+    // 3. Hitung recovery dari RATA-RATA jika data sensor tersedia
+    const sampleCount = Number(sensor[0]?.sample_count ?? 0);
+    if (sampleCount > 0) {
+      const finger = Number(sensor[0].avg_finger ?? 0);
+      const elbow = Number(sensor[0].avg_elbow ?? 0);
 
       if (finger > 60 && elbow > 90) {
         score = 90;
         level = "Good";
-        recommendation =
-          "Pasien menunjukkan perkembangan sangat baik.";
+        recommendation = "Pasien menunjukkan perkembangan sangat baik.";
       } else if (finger > 30 && elbow > 45) {
         score = 70;
         level = "Moderate";
-        recommendation =
-          "Lanjutkan terapi Stage 2.";
+        recommendation = "Lanjutkan terapi Stage 2.";
       } else {
         score = 40;
         level = "Poor";
-        recommendation =
-          "Fokus latihan ROM dasar.";
+        recommendation = "Fokus latihan ROM dasar.";
       }
     }
 
@@ -223,12 +205,7 @@ export async function PATCH(req: NextRequest) {
         $4
       )
       `,
-      [
-        body.sessionId,
-        score,
-        level,
-        recommendation,
-      ]
+      [body.sessionId, score, level, recommendation]
     );
 
     // 5. Ambil patient_id dari session
@@ -262,12 +239,7 @@ export async function PATCH(req: NextRequest) {
           $4
         )
         `,
-        [
-          patient[0].patient_id,
-          body.sessionId,
-          recommendation,
-          "STRIVE AI",
-        ]
+        [patient[0].patient_id, body.sessionId, recommendation, "STRIVE AI"]
       );
     }
 
@@ -279,6 +251,7 @@ export async function PATCH(req: NextRequest) {
         score,
         level,
         recommendation,
+        sampleCount,
       },
     });
   } catch (error) {
@@ -293,4 +266,3 @@ export async function PATCH(req: NextRequest) {
     );
   }
 }
-
