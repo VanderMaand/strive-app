@@ -4,20 +4,39 @@ import { useEffect, useState } from "react";
 
 type Props = {
   label: string;
-  sessionId: string;
+  sessionId: string | null;
   field: "finger_angle" | "elbow_angle";
   max: number; // rentang derajat maksimum anatomis
   accent: string;
   strokeHex: string;
 };
 
-type SensorState = "waiting" | "disconnected" | "ok" | "error";
+type SensorState = "waiting" | "disconnected" | "ok" | "error" | "empty";
 
-export function JointAngleGauge({ label, sessionId, field, max, accent, strokeHex }: Props) {
+export function JointAngleGauge({
+  label,
+  sessionId,
+  field,
+  max,
+  accent,
+  strokeHex,
+}: Props) {
   const [angle, setAngle] = useState<number | null>(null);
   const [state, setState] = useState<SensorState>("waiting");
 
   useEffect(() => {
+    // TAMBAH: reset nilai lama setiap kali sessionId/field berganti
+    // (termasuk saat pindah ke pasien baru yang belum punya sesi)
+    setAngle(null);
+
+    // TAMBAH: kalau belum ada sesi, jangan connect SSE sama sekali
+    if (!sessionId) {
+      setState("empty");
+      return;
+    }
+
+    setState("waiting");
+
     const es = new EventSource(`/api/vitals?session=${sessionId}`);
     es.onerror = () => setState("error");
     es.onmessage = (e) => {
@@ -40,37 +59,50 @@ export function JointAngleGauge({ label, sessionId, field, max, accent, strokeHe
     waiting: "menunggu sensor",
     disconnected: "DB terputus",
     error: "terputus",
+    empty: "belum ada sesi terapi",
   };
 
   return (
     <div className="flex flex-col items-center rounded-xl bg-surface p-5 shadow-panel">
-      <p className="mb-2 self-start text-xs uppercase tracking-[0.16em] text-muted">{label}</p>
+      <p className="mb-2 self-start text-xs uppercase tracking-[0.16em] text-muted">
+        {label}
+      </p>
       <div className="relative h-32 w-32">
         <svg viewBox="0 0 140 140" className="h-full w-full -rotate-[135deg]">
           <circle
-            cx="70" cy="70" r={r} fill="none" stroke="#233355" strokeWidth="10"
-            strokeDasharray={`${circumference * 0.75} ${circumference}`} strokeLinecap="round"
+            cx="70"
+            cy="70"
+            r={r}
+            fill="none"
+            stroke="#233355"
+            strokeWidth="10"
+            strokeDasharray={`${circumference * 0.75} ${circumference}`}
+            strokeLinecap="round"
           />
           {angle !== null && (
             <circle
-              cx="70" cy="70" r={r} fill="none" stroke={strokeHex} strokeWidth="10"
+              cx="70"
+              cy="70"
+              r={r}
+              fill="none"
+              stroke={strokeHex}
+              strokeWidth="10"
               strokeDasharray={`${circumference * 0.75} ${circumference}`}
-              strokeDashoffset={offset} strokeLinecap="round"
-              style={{ transition: "stroke-dashoffset 0.25s linear" }}
+              strokeDashoffset={offset}
+              strokeLinecap="round"
             />
           )}
         </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center px-2 text-center">
-          {angle !== null ? (
-            <>
-              <span className={`font-mono text-2xl font-semibold mono-tabular ${accent}`}>{angle.toFixed(0)}°</span>
-              <span className="text-[10px] text-muted">/ {max}°</span>
-            </>
-          ) : (
-            <span className="text-[11px] leading-tight text-muted">{statusLabel[state]}</span>
-          )}
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className={`font-mono text-2xl font-bold ${accent}`}>
+            {angle !== null ? angle.toFixed(0) : "-"}°
+          </span>
         </div>
       </div>
+
+      {state !== "ok" && (
+        <p className="mt-2 text-xs text-muted">{statusLabel[state]}</p>
+      )}
     </div>
   );
 }

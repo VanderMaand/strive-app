@@ -54,7 +54,7 @@ export default function DashboardPage() {
   const [therapyRunning, setTherapyRunning] =
     useState(false);
 
-  // TAMBAH: state untuk modal "Tambah Pasien"
+  // ⬇️ TAMBAHAN: state untuk modal "Tambah Pasien"
   const [showAddPatient, setShowAddPatient] = useState(false);
   const [addPatientLoading, setAddPatientLoading] = useState(false);
   const [addPatientError, setAddPatientError] = useState("");
@@ -191,7 +191,7 @@ export default function DashboardPage() {
     }
   }
 
-  // TAMBAH: submit form tambah pasien baru
+  // ⬇️ TAMBAHAN: submit form tambah pasien baru
   async function handleAddPatient(form: {
     name: string;
     age: string;
@@ -367,7 +367,7 @@ export default function DashboardPage() {
           Stop Therapy
         </button>
 
-        {/* TAMBAH: tombol buka modal tambah pasien, langsung dari dashboard */}
+        {/* ⬇️ TAMBAHAN: tombol buka modal tambah pasien, langsung dari dashboard */}
         <button
           onClick={() => setShowAddPatient(true)}
           className="
@@ -424,11 +424,11 @@ export default function DashboardPage() {
           </h2>
 
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-[2fr_1fr_1fr]">
-            <ECGMonitor sessionId={latestSession?.id ?? selected.id} />
+            <ECGMonitor sessionId={latestSession?.id ?? null} />
 
             <JointAngleGauge
               label="Sudut Jari"
-              sessionId={latestSession?.id ?? selected.id}
+              sessionId={latestSession?.id ?? null}
               field="finger_angle"
               max={90}
               accent="text-trace"
@@ -437,7 +437,7 @@ export default function DashboardPage() {
 
             <JointAngleGauge
               label="Sudut Siku"
-              sessionId={latestSession?.id ?? selected.id}
+              sessionId={latestSession?.id ?? null}
               field="elbow_angle"
               max={130}
               accent="text-leaf"
@@ -513,7 +513,7 @@ export default function DashboardPage() {
   );
 }
 
-// TAMBAH: komponen modal form tambah pasien
+// ⬇️ TAMBAHAN: komponen modal form tambah pasien
 function AddPatientModal({
   loading,
   error,
