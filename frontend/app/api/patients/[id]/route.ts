@@ -1,93 +1,65 @@
-import { NextResponse } from "next/server";
-import { query } from "@/lib/db";
+import { NextRequest, NextResponse } from "next/server";
+import { query, isDbConfigured } from "@/lib/db";
 
 export async function GET(
-  request: Request,
-  {
-    params
-  }: {
-    params: {
-      id: string;
-    };
-  }
+  req: NextRequest,
+  { params }: { params: { id: string } }
 ) {
+  if (!isDbConfigured()) {
+    return NextResponse.json(
+      { status: "disconnected", message: "DATABASE_URL belum diisi." },
+      { status: 503 }
+    );
+  }
 
   try {
-
-    const patientId =
-      params.id;
-
-    const patient =
-      await query(
-        `
-        SELECT *
-        FROM patients
-        WHERE id = $1
-        `,
-        [patientId]
-      );
-
-    const sessions =
-      await query(
-        `
-        SELECT *
-        FROM therapy_sessions
-        WHERE patient_id = $1
-        ORDER BY id DESC
-        `,
-        [patientId]
-      );
-
-    const recovery =
-      await query(
-        `
-        SELECT
-          r.*
-        FROM recovery_scores r
-        JOIN therapy_sessions t
-        ON t.id = r.session_id
-        WHERE t.patient_id = $1
-        ORDER BY r.id DESC
-        `,
-        [patientId]
-      );
-
-    const ai =
-      await query(
-        `
-        SELECT *
-        FROM ai_recommendations
-        WHERE patient_id = $1
-        ORDER BY id DESC
-        `,
-        [patientId]
-      );
-
-    return NextResponse.json({
-
-      patient:
-        patient[0] ?? null,
-
-      sessions,
-
-      recovery,
-
-      ai
-
-    });
-
-  } catch (error) {
-
-    return NextResponse.json(
-      {
-        status: "error",
-        message:
-          (error as Error).message
-      },
-      {
-        status: 500
-      }
+    const patientRows = await query<{
+      id: number;
+      full_name: string;
+      age: number;
+      gender: string;
+      diagnosis: string;
+    }>(
+      `
+      SELECT id, full_name, age, gender, diagnosis
+      FROM patients
+      WHERE id = $1
+      `,
+      [params.id]
     );
 
+    if (patientRows.length === 0) {
+      return NextResponse.json(
+        { status: "error", message: "Pasien tidak ditemukan." },
+        { status: 404 }
+      );
+    }
+
+    const sessionRows = await query<{
+      id: number;
+      start_time: string;
+      end_time: string | null;
+      stage: number;
+      notes: string;
+    }>(
+      `
+      SELECT id, start_time, end_time, stage, notes
+      FROM therapy_sessions
+      WHERE patient_id = $1
+      ORDER BY start_time ASC
+      `,
+      [params.id]
+    );
+
+    return NextResponse.json({
+      status: "ok",
+      patient: patientRows[0],
+      sessions: sessionRows,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { status: "error", message: (error as Error).message },
+      { status: 500 }
+    );
   }
 }
