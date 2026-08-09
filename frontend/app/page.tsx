@@ -83,7 +83,10 @@ export default function DashboardPage() {
       if (data.status === "ok") {
         setActiveSessionId(data.sessionId);
         setTherapyRunning(true);
-        alert(`Sesi terapi #${data.sessionId} dimulai`);
+        // ⬇️ DIPERBAIKI: tampilkan nomor urut sesi milik pasien ini,
+        // bukan id database global (yang dihitung lintas semua pasien)
+        const sessionNumber = (dashboard?.patientSessions ?? 0) + 1;
+        alert(`Sesi terapi ke-${sessionNumber} untuk pasien ini dimulai`);
         await loadDashboard(selectedId);
       } else if (res.status === 409) {
         setActiveSessionId(data.sessionId);
