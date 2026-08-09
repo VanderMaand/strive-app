@@ -16,7 +16,6 @@ type PatientRow = {
 
 function groupRows(rows: PatientRow[]): Patient[] {
   const byId = new Map<number, Patient>();
-
   for (const r of rows) {
     if (!byId.has(r.id)) {
       byId.set(r.id, {
@@ -28,9 +27,7 @@ function groupRows(rows: PatientRow[]): Patient[] {
         sessions: [],
       });
     }
-
     const p = byId.get(r.id)!;
-
     if (r.session_id) {
       p.sessions.push({
         id: String(r.session_id),
@@ -42,7 +39,6 @@ function groupRows(rows: PatientRow[]): Patient[] {
       });
     }
   }
-
   return Array.from(byId.values()).map((p) => ({
     ...p,
     sessionsCompleted: p.sessions.length,
@@ -67,25 +63,52 @@ export async function GET() {
   }
 
   try {
+    // sebelumnya semua kolom ini hardcode NULL.
+    // Sekarang diambil dari agregat sensor_data per sesi:
+    //   - duration_min  : selisih start_time & end_time sesi (menit)
+    //   - finger/elbow   : rata-rata sudut sensor, dinormalisasi ke persen
+    //                      (max sama dengan JointAngleGauge di UI: 90° dan 130°)
+    //   - consistency    : 100 dikurangi variasi (stddev) relatif terhadap rata-rata,
+    //                      dibatasi 0-100 (semakin stabil gerakannya, semakin tinggi)
     const rows = await query<PatientRow>(`
       SELECT
           p.id,
           p.full_name AS name,
           p.diagnosis,
-
           s.id AS session_id,
           s.start_time AS started_at,
-
-          NULL AS duration_min,
-          NULL AS finger_movement_pct,
-          NULL AS elbow_movement_pct,
-          NULL AS consistency_pct
-
+          CASE
+            WHEN s.end_time IS NOT NULL
+            THEN EXTRACT(EPOCH FROM (s.end_time - s.start_time)) / 60
+            ELSE NULL
+          END AS duration_min,
+          LEAST(100, GREATEST(0, (agg.avg_finger / 90.0) * 100)) AS finger_movement_pct,
+          LEAST(100, GREATEST(0, (agg.avg_elbow / 130.0) * 100)) AS elbow_movement_pct,
+          LEAST(
+            100,
+            GREATEST(
+              0,
+              100 - COALESCE(
+                (
+                  (agg.stddev_finger + agg.stddev_elbow)
+                  / NULLIF(agg.avg_finger + agg.avg_elbow, 0)
+                ) * 100,
+                0
+              )
+            )
+          ) AS consistency_pct
       FROM patients p
-
       LEFT JOIN therapy_sessions s
           ON s.patient_id = p.id
-
+      LEFT JOIN LATERAL (
+          SELECT
+              AVG(finger_angle) AS avg_finger,
+              AVG(elbow_angle) AS avg_elbow,
+              COALESCE(STDDEV(finger_angle), 0) AS stddev_finger,
+              COALESCE(STDDEV(elbow_angle), 0) AS stddev_elbow
+          FROM sensor_data sd
+          WHERE sd.session_id = s.id
+      ) agg ON TRUE
       ORDER BY
           p.full_name,
           s.start_time ASC
@@ -101,70 +124,6 @@ export async function GET() {
         status: "error",
         message: (err as Error).message,
         patients: [],
-      },
-      { status: 500 }
-    );
-  }
-}
-
-// POST /api/patients
-export async function POST(req: NextRequest) {
-  if (!isDbConfigured()) {
-    return NextResponse.json(
-      {
-        status: "disconnected",
-        message: "DATABASE_URL belum diisi.",
-      },
-      { status: 503 }
-    );
-  }
-
-  const body = await req.json().catch(() => null);
-
-  if (!body?.name) {
-    return NextResponse.json(
-      {
-        status: "error",
-        message: "Field 'name' wajib diisi.",
-      },
-      { status: 400 }
-    );
-  }
-
-  try {
-    await query(
-      `
-      INSERT INTO patients
-      (
-        patient_code,
-        full_name,
-        diagnosis
-      )
-      VALUES
-      (
-        $1,
-        $2,
-        $3
-      )
-      `,
-      [
-        body.patientCode ?? `PAT-${Date.now()}`,
-        body.name,
-        body.diagnosis ?? null,
-      ]
-    );
-
-    return NextResponse.json(
-      {
-        status: "ok",
-      },
-      { status: 201 }
-    );
-  } catch (err) {
-    return NextResponse.json(
-      {
-        status: "error",
-        message: (err as Error).message,
       },
       { status: 500 }
     );
