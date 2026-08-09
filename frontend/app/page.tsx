@@ -54,6 +54,11 @@ export default function DashboardPage() {
   const [therapyRunning, setTherapyRunning] =
     useState(false);
 
+  // TAMBAH: state untuk modal "Tambah Pasien"
+  const [showAddPatient, setShowAddPatient] = useState(false);
+  const [addPatientLoading, setAddPatientLoading] = useState(false);
+  const [addPatientError, setAddPatientError] = useState("");
+
   async function startTherapy() {
     if (!selectedId) {
       alert("Pilih pasien terlebih dahulu");
@@ -138,7 +143,41 @@ export default function DashboardPage() {
   }
 
   // Diambil keluar dari useEffect supaya bisa dipanggil ulang
-  // setiap kali selectedId berubah, atau setelah start/stop therapy
+  // (misal setelah tambah pasien baru, atau setelah start/stop therapy)
+  async function loadPatients(selectNewestId?: string) {
+    try {
+      const res = await fetch("/api/patients");
+      const json = await res.json();
+
+      if (json.status === "disconnected") {
+        setStatus("disconnected");
+        setMessage(json.message ?? "");
+        return;
+      }
+
+      if (json.status === "error") {
+        setStatus("error");
+        setMessage(json.message ?? "");
+        return;
+      }
+
+      const list: Patient[] = json.patients ?? [];
+
+      setPatients(list);
+
+      if (selectNewestId) {
+        setSelectedId(selectNewestId);
+      } else {
+        setSelectedId((prev) => prev ?? list[0]?.id ?? null);
+      }
+
+      setStatus(list.length ? "connected" : "empty");
+    } catch (err) {
+      setStatus("error");
+      setMessage((err as Error).message);
+    }
+  }
+
   async function loadDashboard(patientId: string) {
     try {
       const res = await fetch(`/api/dashboard?patientId=${patientId}`);
@@ -152,42 +191,53 @@ export default function DashboardPage() {
     }
   }
 
+  // TAMBAH: submit form tambah pasien baru
+  async function handleAddPatient(form: {
+    name: string;
+    age: string;
+    gender: string;
+    diagnosis: string;
+  }) {
+    setAddPatientLoading(true);
+    setAddPatientError("");
+
+    try {
+      const res = await fetch("/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name,
+          age: form.age ? Number(form.age) : null,
+          gender: form.gender,
+          diagnosis: form.diagnosis,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.status === "ok") {
+        setShowAddPatient(false);
+        // reload daftar pasien, langsung pilih pasien yang baru dibuat
+        await loadPatients(String(data.patientId));
+      } else {
+        setAddPatientError(data.message ?? "Gagal menambahkan pasien.");
+      }
+    } catch (error) {
+      setAddPatientError((error as Error).message);
+    } finally {
+      setAddPatientLoading(false);
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
 
-    async function loadPatients() {
-      try {
-        const res = await fetch("/api/patients");
-        const json = await res.json();
-
-        if (cancelled) return;
-
-        if (json.status === "disconnected") {
-          setStatus("disconnected");
-          setMessage(json.message ?? "");
-          return;
-        }
-
-        if (json.status === "error") {
-          setStatus("error");
-          setMessage(json.message ?? "");
-          return;
-        }
-
-        const list: Patient[] = json.patients ?? [];
-
-        setPatients(list);
-        setSelectedId(list[0]?.id ?? null);
-        setStatus(list.length ? "connected" : "empty");
-      } catch (err) {
-        if (!cancelled) {
-          setStatus("error");
-          setMessage((err as Error).message);
-        }
-      }
+    async function init() {
+      if (cancelled) return;
+      await loadPatients();
     }
 
-    loadPatients();
+    init();
 
     return () => {
       cancelled = true;
@@ -245,12 +295,30 @@ export default function DashboardPage() {
           Silakan registrasi pasien baru untuk memulai terapi.
         </p>
 
-        <Link
-          href="/register"
-          className="rounded-lg bg-blue-600 px-6 py-3 text-white hover:bg-blue-700"
-        >
-          + Registrasi Pasien Baru
-        </Link>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowAddPatient(true)}
+            className="rounded-lg bg-blue-600 px-6 py-3 text-white hover:bg-blue-700"
+          >
+            + Tambah Pasien Baru
+          </button>
+
+          <Link
+            href="/register"
+            className="rounded-lg border border-surface-line px-6 py-3 text-ink hover:bg-surface"
+          >
+            Halaman Registrasi Lengkap
+          </Link>
+        </div>
+
+        {showAddPatient && (
+          <AddPatientModal
+            loading={addPatientLoading}
+            error={addPatientError}
+            onCancel={() => setShowAddPatient(false)}
+            onSubmit={handleAddPatient}
+          />
+        )}
       </div>
     );
   }
@@ -268,7 +336,7 @@ export default function DashboardPage() {
         }
       />
 
-      <div className="flex gap-3 px-6 py-4">
+      <div className="flex flex-wrap items-center gap-3 px-6 py-4">
         <button
           onClick={startTherapy}
           disabled={therapyRunning}
@@ -297,6 +365,22 @@ export default function DashboardPage() {
           "
         >
           Stop Therapy
+        </button>
+
+        {/* TAMBAH: tombol buka modal tambah pasien, langsung dari dashboard */}
+        <button
+          onClick={() => setShowAddPatient(true)}
+          className="
+            rounded-lg
+            border
+            border-surface-line
+            px-4
+            py-2
+            text-ink
+            hover:bg-surface
+          "
+        >
+          + Tambah Pasien
         </button>
       </div>
 
@@ -416,6 +500,127 @@ export default function DashboardPage() {
       <footer className="border-t border-surface-line px-6 py-5 text-center text-xs text-muted sm:px-8">
         STRIVE Monitor · Universitas Negeri Yogyakarta
       </footer>
+
+      {showAddPatient && (
+        <AddPatientModal
+          loading={addPatientLoading}
+          error={addPatientError}
+          onCancel={() => setShowAddPatient(false)}
+          onSubmit={handleAddPatient}
+        />
+      )}
+    </div>
+  );
+}
+
+// TAMBAH: komponen modal form tambah pasien
+function AddPatientModal({
+  loading,
+  error,
+  onCancel,
+  onSubmit,
+}: {
+  loading: boolean;
+  error: string;
+  onCancel: () => void;
+  onSubmit: (form: {
+    name: string;
+    age: string;
+    gender: string;
+    diagnosis: string;
+  }) => void;
+}) {
+  const [name, setName] = useState("");
+  const [age, setAge] = useState("");
+  const [gender, setGender] = useState("Laki-laki");
+  const [diagnosis, setDiagnosis] = useState("");
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) return;
+    onSubmit({ name, age, gender, diagnosis });
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+      <div className="w-full max-w-md rounded-xl bg-surface p-6 shadow-panel">
+        <h2 className="mb-4 text-lg font-semibold text-ink">
+          Tambah Pasien Baru
+        </h2>
+
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <label className="mb-1 block text-xs text-muted">
+              Nama Lengkap
+            </label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              className="w-full rounded-lg border border-surface-line bg-transparent px-3 py-2 text-ink"
+              placeholder="Nama pasien"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs text-muted">Usia</label>
+              <input
+                type="number"
+                value={age}
+                onChange={(e) => setAge(e.target.value)}
+                className="w-full rounded-lg border border-surface-line bg-transparent px-3 py-2 text-ink"
+                placeholder="55"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs text-muted">
+                Jenis Kelamin
+              </label>
+              <select
+                value={gender}
+                onChange={(e) => setGender(e.target.value)}
+                className="w-full rounded-lg border border-surface-line bg-transparent px-3 py-2 text-ink"
+              >
+                <option value="Laki-laki">Laki-laki</option>
+                <option value="Perempuan">Perempuan</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs text-muted">Diagnosis</label>
+            <textarea
+              value={diagnosis}
+              onChange={(e) => setDiagnosis(e.target.value)}
+              rows={3}
+              className="w-full rounded-lg border border-surface-line bg-transparent px-3 py-2 text-ink"
+              placeholder="Misal: Stroke ringan, hemiparesis kanan"
+            />
+          </div>
+
+          {error && <p className="text-sm text-red-500">{error}</p>}
+
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={loading}
+              className="rounded-lg border border-surface-line px-4 py-2 text-ink hover:bg-surface-alt disabled:opacity-50"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {loading ? "Menyimpan..." : "Simpan Pasien"}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
