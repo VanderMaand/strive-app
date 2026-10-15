@@ -623,7 +623,6 @@ Komponen real-time (`ECGMonitor`, `JointAngleGauge`) menampilkan keterangan sesu
 
 ## Catatan Keamanan
 
-Hal-hal berikut ditemukan saat meninjau kode dan **sebaiknya diselesaikan sebelum aplikasi dipakai di luar lingkungan pengembangan**, terlebih karena aplikasi ini memproses data kesehatan pasien.
 
 1. **Rahasia ikut tersimpan di repositori.** `backend/.env` berisi password database dan tidak tercakup `.gitignore` (yang hanya ada di folder `frontend`). `frontend/.env.local` berisi `JWT_SECRET` dan password database. Jika repositori pernah dipublikasikan, **ganti** password database dan `JWT_SECRET`, lalu tambahkan `.env` ke `.gitignore` di root.
 2. **Password database di-hardcode** pada `frontend/api.ts` (file ini tidak terpakai sebagai route dan sebaiknya dihapus).
@@ -642,7 +641,6 @@ Hal-hal berikut ditemukan saat meninjau kode dan **sebaiknya diselesaikan sebelu
 
 ## Keterbatasan & Masalah yang Diketahui
 
-Berdasarkan pembacaan kode (aplikasi belum dijalankan untuk penyusunan dokumen ini):
 
 1. **ECG tidak tergambar.** `ECGMonitor.tsx` membaca `data.ecg_mv`, sedangkan `/api/vitals` mengirim field `ecg`. Akibatnya buffer gelombang tidak pernah terisi. Perbaikan: samakan nama field di salah satu sisi. Perhitungan BPM pada komponen yang sama juga tampak belum tepat (hasil `Math.round(60000 / avgMs) * 6`) dan perlu diverifikasi.
 2. **`recovery-engine.js` tidak melakukan apa pun saat dijalankan.** Fungsi `calculateRecovery()` didefinisikan tetapi tidak pernah dipanggil. Logika yang sama kini ada di `PATCH /api/sessions`, sehingga berkas ini kemungkinan peninggalan versi lama.
